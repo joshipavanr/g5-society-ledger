@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Society Daily Transactions</title>
+  <style>
+    :root {
+      --primary: #1e3a8a;
+      --accent: #2563eb;
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --danger: #dc2626;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 2rem 1rem; line-height: 1.5; }
+    .container { max-width: 1000px; margin: 0 auto; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+    h1 { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
+    .nav-btn {
+      padding: 0.5rem 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      text-decoration: none;
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .filters {
+      display: flex;
+      gap: 1rem;
+      background: var(--surface);
+      padding: 1rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      margin-bottom: 1.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .filter-group { display: flex; align-items: center; gap: 0.5rem; }
+    select {
+      padding: 0.4rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #fff;
+      font-size: 0.95rem;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .stat-card {
+      background: var(--surface);
+      padding: 1rem 1.25rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .stat-title { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.25rem; }
+    .stat-val { font-size: 1.4rem; font-weight: 700; color: var(--text); }
+    .card {
+      background: var(--surface);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      overflow-x: auto;
+    }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th, td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); font-size: 0.95rem; }
+    th { background: #f1f5f9; color: var(--muted); font-weight: 600; }
+    tr:hover { background: #f8fafc; }
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border-radius: 9999px;
+      background: #e0f2fe;
+      color: #0369a1;
+    }
+    .amount { font-weight: 600; color: var(--danger); text-align: right; }
+    .empty-state { text-align: center; padding: 2rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>🏢 Society Transactions Ledger</h1>
+        <p style="color: var(--muted); font-size: 0.9rem;">Daily expense and maintenance report</p>
+      </div>
+      <a href="admin.html" class="nav-btn">+ Record Expense (Admin)</a>
+    </header>
+
+    <div class="filters">
+      <div class="filter-group">
+        <label for="monthFilter"><strong>Month:</strong></label>
+        <select id="monthFilter"></select>
+      </div>
+      <div class="filter-group">
+        <label for="yearFilter"><strong>Year:</strong></label>
+        <select id="yearFilter"></select>
+      </div>
+      <span id="loadingNotice" style="margin-left:auto; color: var(--muted); font-size: 0.85rem;">Loading data...</span>
+    </div>
+
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-title">Total Monthly Expenses</div>
+        <div class="stat-val" id="totalExpense">₹0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-title">Transactions Count</div>
+        <div class="stat-val" id="totalCount">0</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Category</th>
+            <th>Description</th>
+            <th>Mode</th>
+            <th style="text-align: right;">Amount</th>
+          </tr>
+        </thead>
+        <tbody id="txBody">
+          <tr><td colspan="5" class="empty-state">Loading transactions...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbzqUDJHnAFvX1fcVcx6pwhxwFAFPnIScriuixv9KHhSkeEe_3ufM-TIvYK459uZ3WbE/exec";
+    let allTransactions = [];
+
+    const monthNames = ["January", "February", "March", "April", "May", "June", 
+                        "July", "August", "September", "October", "November", "December"];
+
+    function initFilters() {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+
+      const yearSelect = document.getElementById("yearFilter");
+      for (let y = currentYear - 2; y <= currentYear + 1; y++) {
+        const opt = document.createElement("option");
+        opt.value = y;
+        opt.textContent = y;
+        if (y === currentYear) opt.selected = true;
+        yearSelect.appendChild(opt);
+      }
+
+      const monthSelect = document.getElementById("monthFilter");
+      monthNames.forEach((name, idx) => {
+        const opt = document.createElement("option");
+        opt.value = idx;
+        opt.textContent = name;
+        if (idx === currentMonth) opt.selected = true;
+        monthSelect.appendChild(opt);
+      });
+
+      yearSelect.addEventListener("change", render);
+      monthSelect.addEventListener("change", render);
+    }
+
+    async function loadData() {
+      try {
+        const res = await fetch(API_ENDPOINT);
+        const json = await res.json();
+        allTransactions = json.data || [];
+        document.getElementById("loadingNotice").textContent = `Last refreshed: ${new Date().toLocaleTimeString()}`;
+        render();
+      } catch (err) {
+        console.error(err);
+        document.getElementById("loadingNotice").textContent = "Failed to load sheet data.";
+      }
+    }
+
+    function render() {
+      const selectedYear = parseInt(document.getElementById("yearFilter").value);
+      const selectedMonth = parseInt(document.getElementById("monthFilter").value);
+
+      const filtered = allTransactions.filter(item => {
+        const d = new Date(item.date);
+        return d.getFullYear() === selectedYear && d.getMonth() === selectedMonth;
+      });
+
+      // Sort by date descending
+      filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      const tbody = document.getElementById("txBody");
+      tbody.innerHTML = "";
+
+      let total = 0;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="empty-state">No transactions recorded for this period.</td></tr>`;
+      } else {
+        filtered.forEach(tx => {
+          total += Number(tx.amount);
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${tx.date}</td>
+            <td><span class="badge">${tx.type}</span></td>
+            <td>${tx.description || '-'}</td>
+            <td><small style="color: var(--muted)">${tx.paymentMode || 'Online'}</small></td>
+            <td class="amount">₹${Number(tx.amount).toLocaleString('en-IN')}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      document.getElementById("totalExpense").textContent = `₹${total.toLocaleString('en-IN')}`;
+      document.getElementById("totalCount").textContent = filtered.length;
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      initFilters();
+      loadData();
+    });
+  </script>
+</body>
+</html>
