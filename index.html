@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Society Daily Transactions</title>
+  <title>Society Daily Transactions & Maintenance</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
       --primary: #1e3a8a;
@@ -14,27 +15,36 @@
       --muted: #64748b;
       --border: #e2e8f0;
       --danger: #dc2626;
+      --success: #16a34a;
+      --warning: #d97706;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
     body { background: var(--bg); color: var(--text); padding: 2rem 1rem; line-height: 1.5; }
-    .container { max-width: 1000px; margin: 0 auto; }
+    .container { max-width: 1040px; margin: 0 auto; }
     header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
     h1 { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
-    .nav-btn {
+    .header-actions { display: flex; gap: 0.75rem; }
+    .btn {
       padding: 0.5rem 1rem;
-      background: var(--surface);
-      border: 1px solid var(--border);
       border-radius: 6px;
-      text-decoration: none;
-      color: var(--accent);
       font-weight: 600;
       font-size: 0.9rem;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
     }
+    .btn-outline { background: var(--surface); border: 1px solid var(--border); color: var(--accent); }
+    .btn-primary { background: var(--accent); border: 1px solid var(--accent); color: #fff; }
+    .btn-primary:hover { background: #1d4ed8; }
+
+    /* Filters */
     .filters {
       display: flex;
-      gap: 1rem;
+      gap: 1.25rem;
       background: var(--surface);
-      padding: 1rem;
+      padding: 1rem 1.25rem;
       border-radius: 8px;
       border: 1px solid var(--border);
       margin-bottom: 1.5rem;
@@ -42,13 +52,9 @@
       flex-wrap: wrap;
     }
     .filter-group { display: flex; align-items: center; gap: 0.5rem; }
-    select {
-      padding: 0.4rem 0.75rem;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      background: #fff;
-      font-size: 0.95rem;
-    }
+    select { padding: 0.45rem 0.75rem; border: 1px solid var(--border); border-radius: 6px; background: #fff; font-size: 0.92rem; }
+
+    /* Stat Cards */
     .stats {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -57,25 +63,38 @@
     }
     .stat-card {
       background: var(--surface);
-      padding: 1rem 1.25rem;
+      padding: 1.1rem 1.25rem;
       border-radius: 8px;
       border: 1px solid var(--border);
     }
-    .stat-title { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.25rem; }
+    .stat-title { font-size: 0.82rem; color: var(--muted); margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.03em; }
     .stat-val { font-size: 1.4rem; font-weight: 700; color: var(--text); }
-    .card {
+
+    /* Breakdown Section */
+    .section-card {
       background: var(--surface);
+      padding: 1.25rem;
       border-radius: 8px;
       border: 1px solid var(--border);
-      overflow-x: auto;
+      margin-bottom: 1.5rem;
     }
+    .section-title { font-size: 1.05rem; font-weight: 700; color: var(--primary); margin-bottom: 1rem; }
+    .chart-container { position: relative; width: 100%; max-height: 260px; margin-bottom: 1.25rem; }
+    .category-bars { display: flex; flex-direction: column; gap: 0.85rem; }
+    .bar-row { display: flex; flex-direction: column; gap: 0.25rem; }
+    .bar-meta { display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 500; }
+    .bar-track { width: 100%; height: 9px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
+    .bar-fill { height: 100%; background: var(--accent); border-radius: 999px; }
+
+    /* Tables */
+    .card { background: var(--surface); border-radius: 8px; border: 1px solid var(--border); overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; text-align: left; }
-    th, td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); font-size: 0.95rem; }
-    th { background: #f1f5f9; color: var(--muted); font-weight: 600; }
-    tr:hover { background: #f8fafc; }
+    th, td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); font-size: 0.92rem; }
+    th { background: #f8fafc; color: var(--muted); font-weight: 600; }
+    tr:hover { background: #fdfdfd; }
     .badge {
       display: inline-block;
-      padding: 0.2rem 0.6rem;
+      padding: 0.2rem 0.55rem;
       font-size: 0.75rem;
       font-weight: 600;
       border-radius: 9999px;
@@ -84,41 +103,122 @@
     }
     .amount { font-weight: 600; color: var(--danger); text-align: right; }
     .empty-state { text-align: center; padding: 2rem; color: var(--muted); }
+
+    /* Modal (Popup) */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(2px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .modal-backdrop.active { display: flex; }
+    .modal {
+      background: var(--surface);
+      border-radius: 12px;
+      width: 100%;
+      max-width: 820px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--muted);
+      line-height: 1;
+    }
+    .modal-body { padding: 1.5rem; overflow-y: auto; }
+    .tab-bar { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); }
+    .tab-btn {
+      padding: 0.5rem 1rem;
+      border: none;
+      background: none;
+      border-bottom: 2px solid transparent;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .tab-btn.active { color: var(--accent); border-color: var(--accent); }
+    .status-badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      border-radius: 9999px;
+      text-transform: uppercase;
+    }
+    .status-paid { background: #dcfce7; color: var(--success); }
+    .status-pending { background: #fee2e2; color: var(--danger); }
+    .status-partial { background: #fef3c7; color: var(--warning); }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
       <div>
-        <h1>🏢 Society Transactions Ledger</h1>
-        <p style="color: var(--muted); font-size: 0.9rem;">Daily expense and maintenance report</p>
+        <h1>🏢 Society Transactions & Accounts</h1>
+        <p style="color: var(--muted); font-size: 0.9rem;">Financial year expense register and maintenance tracker</p>
       </div>
-      <a href="admin.html" class="nav-btn">+ Record Expense (Admin)</a>
+      <div class="header-actions">
+        <button class="btn btn-primary" onclick="openMaintenanceModal()">📋 Maintenance & Dues</button>
+        <a href="admin.html" class="btn btn-outline">+ Record Expense</a>
+      </div>
     </header>
 
+    <!-- Indian FY & Month Filters -->
     <div class="filters">
       <div class="filter-group">
-        <label for="monthFilter"><strong>Month:</strong></label>
-        <select id="monthFilter"></select>
+        <label for="fyFilter"><strong>Financial Year (Apr–Mar):</strong></label>
+        <select id="fyFilter"></select>
       </div>
       <div class="filter-group">
-        <label for="yearFilter"><strong>Year:</strong></label>
-        <select id="yearFilter"></select>
+        <label for="monthFilter"><strong>Month View:</strong></label>
+        <select id="monthFilter"></select>
       </div>
       <span id="loadingNotice" style="margin-left:auto; color: var(--muted); font-size: 0.85rem;">Loading data...</span>
     </div>
 
+    <!-- Summary KPI Cards -->
     <div class="stats">
       <div class="stat-card">
-        <div class="stat-title">Total Monthly Expenses</div>
+        <div class="stat-title">Selected Period Expenses</div>
         <div class="stat-val" id="totalExpense">₹0</div>
       </div>
       <div class="stat-card">
-        <div class="stat-title">Transactions Count</div>
+        <div class="stat-title">Transaction Count</div>
         <div class="stat-val" id="totalCount">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-title">Top Expense Category</div>
+        <div class="stat-val" id="topCategory">-</div>
       </div>
     </div>
 
+    <!-- Bar Diagram Breakdown Section -->
+    <div class="section-card">
+      <div class="section-title">📊 Expense Distribution & Percentage Breakdown</div>
+      <div class="chart-container">
+        <canvas id="expenseChart"></canvas>
+      </div>
+      <div class="category-bars" id="categoryBars"></div>
+    </div>
+
+    <!-- Ledger Table -->
     <div class="card">
       <table>
         <thead>
@@ -126,7 +226,7 @@
             <th>Date</th>
             <th>Category</th>
             <th>Description</th>
-            <th>Mode</th>
+            <th>Payment Mode</th>
             <th style="text-align: right;">Amount</th>
           </tr>
         </thead>
@@ -137,37 +237,121 @@
     </div>
   </div>
 
+  <!-- POPUP MODAL: Maintenance Collections & Defaulters -->
+  <div class="modal-backdrop" id="maintModal">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <h2 style="font-size: 1.25rem; color: var(--primary);">Flat Maintenance Status</h2>
+          <span style="font-size: 0.85rem; color: var(--muted);" id="modalFyLabel"></span>
+        </div>
+        <button class="modal-close" onclick="closeMaintenanceModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Modal KPI Cards -->
+        <div class="stats" style="margin-bottom: 1.25rem;">
+          <div class="stat-card" style="border-left: 4px solid var(--success);">
+            <div class="stat-title">Total Collected</div>
+            <div class="stat-val" id="maintTotalCollected" style="color: var(--success);">₹0</div>
+          </div>
+          <div class="stat-card" style="border-left: 4px solid var(--danger);">
+            <div class="stat-title">Pending Defaulters Due</div>
+            <div class="stat-val" id="maintTotalPending" style="color: var(--danger);">₹0</div>
+          </div>
+          <div class="stat-card" style="border-left: 4px solid var(--warning);">
+            <div class="stat-title">Unpaid / Partial Flats</div>
+            <div class="stat-val" id="maintPendingCount">0</div>
+          </div>
+        </div>
+
+        <!-- Tab switches -->
+        <div class="tab-bar">
+          <button class="tab-btn active" id="tabDefaulters" onclick="switchTab('defaulters')">⚠️ Pending Flats Only</button>
+          <button class="tab-btn" id="tabAll" onclick="switchTab('all')">🏢 All Flats Ledger</button>
+        </div>
+
+        <!-- Flats Table -->
+        <div class="card" style="max-height: 380px; overflow-y: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Flat No.</th>
+                <th>Wing</th>
+                <th>Owner / Resident</th>
+                <th>Due Amount</th>
+                <th>Paid Amount</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="maintTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbzqUDJHnAFvX1fcVcx6pwhxwFAFPnIScriuixv9KHhSkeEe_3ufM-TIvYK459uZ3WbE/exec";
     let allTransactions = [];
+    let allMaintenance = [];
+    let chartInstance = null;
+    let activeModalTab = "defaulters";
 
-    const monthNames = ["January", "February", "March", "April", "May", "June", 
-                        "July", "August", "September", "October", "November", "December"];
+    const barColors = ['#2563eb', '#0891b2', '#059669', '#d97706', '#dc2626', '#7c3aed', '#db2777', '#4b5563'];
+
+    // Indian Financial Year months in fiscal order (Apr = 3 ... Mar = 2)
+    const fyMonths = [
+      { name: "Full Financial Year (All Months)", value: "ALL" },
+      { name: "April", value: 3 },
+      { name: "May", value: 4 },
+      { name: "June", value: 5 },
+      { name: "July", value: 6 },
+      { name: "August", value: 7 },
+      { name: "September", value: 8 },
+      { name: "October", value: 9 },
+      { name: "November", value: 10 },
+      { name: "December", value: 11 },
+      { name: "January", value: 0 },
+      { name: "February", value: 1 },
+      { name: "March", value: 2 }
+    ];
+
+    // Calculate Indian FY from a given date
+    function getIndianFY(d) {
+      const year = d.getFullYear();
+      const month = d.getMonth(); // 0 = Jan, 3 = Apr
+      return month >= 3 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+    }
 
     function initFilters() {
       const now = new Date();
-      const currentYear = now.getFullYear();
+      const currentFY = getIndianFY(now);
       const currentMonth = now.getMonth();
 
-      const yearSelect = document.getElementById("yearFilter");
-      for (let y = currentYear - 2; y <= currentYear + 1; y++) {
+      // Populate Financial Years (Last 3 years up to next year)
+      const baseYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+      const fySelect = document.getElementById("fyFilter");
+
+      for (let y = baseYear - 2; y <= baseYear + 1; y++) {
+        const fyString = `${y}-${y + 1}`;
         const opt = document.createElement("option");
-        opt.value = y;
-        opt.textContent = y;
-        if (y === currentYear) opt.selected = true;
-        yearSelect.appendChild(opt);
+        opt.value = fyString;
+        opt.textContent = `FY ${fyString} (Apr ${y} - Mar ${y + 1})`;
+        if (fyString === currentFY) opt.selected = true;
+        fySelect.appendChild(opt);
       }
 
+      // Populate Months
       const monthSelect = document.getElementById("monthFilter");
-      monthNames.forEach((name, idx) => {
+      fyMonths.forEach(m => {
         const opt = document.createElement("option");
-        opt.value = idx;
-        opt.textContent = name;
-        if (idx === currentMonth) opt.selected = true;
+        opt.value = m.value;
+        opt.textContent = m.name;
+        if (m.value === currentMonth) opt.selected = true;
         monthSelect.appendChild(opt);
       });
 
-      yearSelect.addEventListener("change", render);
+      fySelect.addEventListener("change", render);
       monthSelect.addEventListener("change", render);
     }
 
@@ -175,37 +359,48 @@
       try {
         const res = await fetch(API_ENDPOINT);
         const json = await res.json();
-        allTransactions = json.data || [];
-        document.getElementById("loadingNotice").textContent = `Last refreshed: ${new Date().toLocaleTimeString()}`;
+        allTransactions = json.expenses || json.data || [];
+        allMaintenance = json.maintenance || [];
+        document.getElementById("loadingNotice").textContent = `Updated: ${new Date().toLocaleTimeString()}`;
         render();
       } catch (err) {
         console.error(err);
-        document.getElementById("loadingNotice").textContent = "Failed to load sheet data.";
+        document.getElementById("loadingNotice").textContent = "Unable to fetch Google Sheet data.";
       }
     }
 
     function render() {
-      const selectedYear = parseInt(document.getElementById("yearFilter").value);
-      const selectedMonth = parseInt(document.getElementById("monthFilter").value);
+      const selectedFY = document.getElementById("fyFilter").value;
+      const selectedMonth = document.getElementById("monthFilter").value;
 
+      // Filter by Indian FY and chosen Month
       const filtered = allTransactions.filter(item => {
         const d = new Date(item.date);
-        return d.getFullYear() === selectedYear && d.getMonth() === selectedMonth;
+        const itemFY = getIndianFY(d);
+        if (itemFY !== selectedFY) return false;
+        if (selectedMonth !== "ALL" && d.getMonth() !== parseInt(selectedMonth)) return false;
+        return true;
       });
 
-      // Sort by date descending
       filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
 
+      let total = 0;
+      const categoryMap = {};
+
+      filtered.forEach(tx => {
+        const amt = Number(tx.amount);
+        total += amt;
+        categoryMap[tx.type] = (categoryMap[tx.type] || 0) + amt;
+      });
+
+      // Update Ledger Table
       const tbody = document.getElementById("txBody");
       tbody.innerHTML = "";
-
-      let total = 0;
 
       if (filtered.length === 0) {
         tbody.innerHTML = `<tr><td colspan="5" class="empty-state">No transactions recorded for this period.</td></tr>`;
       } else {
         filtered.forEach(tx => {
-          total += Number(tx.amount);
           const tr = document.createElement("tr");
           tr.innerHTML = `
             <td>${tx.date}</td>
@@ -220,7 +415,163 @@
 
       document.getElementById("totalExpense").textContent = `₹${total.toLocaleString('en-IN')}`;
       document.getElementById("totalCount").textContent = filtered.length;
+
+      renderAnalytics(categoryMap, total);
     }
+
+    function renderAnalytics(categoryMap, total) {
+      const barsContainer = document.getElementById("categoryBars");
+      barsContainer.innerHTML = "";
+
+      const sortedCategories = Object.entries(categoryMap).sort((a, b) => b[1] - a[1]);
+
+      if (sortedCategories.length === 0 || total === 0) {
+        document.getElementById("topCategory").textContent = "-";
+        barsContainer.innerHTML = `<p style="color: var(--muted); font-size: 0.9rem;">No expense data for this period.</p>`;
+        if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+        return;
+      }
+
+      document.getElementById("topCategory").textContent = sortedCategories[0][0];
+
+      const labels = [];
+      const dataPercentages = [];
+      const dataAmounts = [];
+
+      sortedCategories.forEach(([cat, amount], index) => {
+        const percentage = ((amount / total) * 100).toFixed(1);
+        const color = barColors[index % barColors.length];
+
+        labels.push(cat);
+        dataPercentages.push(percentage);
+        dataAmounts.push(amount);
+
+        const barItem = document.createElement("div");
+        barItem.className = "bar-row";
+        barItem.innerHTML = `
+          <div class="bar-meta">
+            <span><strong>${cat}</strong> (${percentage}%)</span>
+            <span>₹${amount.toLocaleString('en-IN')}</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width: ${percentage}%; background-color: ${color};"></div>
+          </div>
+        `;
+        barsContainer.appendChild(barItem);
+      });
+
+      const ctx = document.getElementById("expenseChart").getContext("2d");
+      if (chartInstance) chartInstance.destroy();
+
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: dataPercentages,
+            backgroundColor: barColors.slice(0, labels.length),
+            borderRadius: 6
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: context => ` ${context.raw}% (₹${dataAmounts[context.dataIndex].toLocaleString('en-IN')})`
+              }
+            }
+          },
+          scales: {
+            x: { beginAtZero: true, max: 100, ticks: { callback: val => val + '%' }, grid: { color: '#f1f5f9' } },
+            y: { grid: { display: false } }
+          }
+        }
+      });
+    }
+
+    // Modal Operations
+    function openMaintenanceModal() {
+      const selectedFY = document.getElementById("fyFilter").value;
+      document.getElementById("modalFyLabel").textContent = `Showing details for FY ${selectedFY}`;
+      renderMaintenance();
+      document.getElementById("maintModal").classList.add("active");
+    }
+
+    function closeMaintenanceModal() {
+      document.getElementById("maintModal").classList.remove("active");
+    }
+
+    function switchTab(tab) {
+      activeModalTab = tab;
+      document.getElementById("tabDefaulters").classList.toggle("active", tab === "defaulters");
+      document.getElementById("tabAll").classList.toggle("active", tab === "all");
+      renderMaintenance();
+    }
+
+    function renderMaintenance() {
+      const selectedFY = document.getElementById("fyFilter").value;
+      
+      // Filter maintenance by chosen FY
+      const maintList = allMaintenance.filter(m => !m.fy || m.fy === selectedFY);
+
+      let totalCollected = 0;
+      let totalPending = 0;
+      let pendingCount = 0;
+
+      maintList.forEach(m => {
+        totalCollected += m.paidAmount;
+        const balance = m.dueAmount - m.paidAmount;
+        if (balance > 0) {
+          totalPending += balance;
+          pendingCount++;
+        }
+      });
+
+      document.getElementById("maintTotalCollected").textContent = `₹${totalCollected.toLocaleString('en-IN')}`;
+      document.getElementById("maintTotalPending").textContent = `₹${totalPending.toLocaleString('en-IN')}`;
+      document.getElementById("maintPendingCount").textContent = pendingCount;
+
+      const tbody = document.getElementById("maintTableBody");
+      tbody.innerHTML = "";
+
+      const displayedList = activeModalTab === "defaulters" 
+        ? maintList.filter(m => (m.dueAmount - m.paidAmount) > 0 || m.status.toLowerCase() !== "paid")
+        : maintList;
+
+      if (displayedList.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">
+          ${activeModalTab === "defaulters" ? "🎉 No pending maintenance dues for this FY!" : "No records found."}
+        </td></tr>`;
+        return;
+      }
+
+      displayedList.forEach(m => {
+        const balance = m.dueAmount - m.paidAmount;
+        let badgeClass = "status-pending";
+        if (m.paidAmount >= m.dueAmount && m.dueAmount > 0) badgeClass = "status-paid";
+        else if (m.paidAmount > 0) badgeClass = "status-partial";
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><strong>Flat ${m.flatNo}</strong></td>
+          <td>${m.wing || '-'}</td>
+          <td>${m.ownerName || '-'}</td>
+          <td>₹${m.dueAmount.toLocaleString('en-IN')}</td>
+          <td>₹${m.paidAmount.toLocaleString('en-IN')}</td>
+          <td><span class="status-badge ${badgeClass}">${m.status || (balance <= 0 ? 'PAID' : 'PENDING')}</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Close modal on backdrop click
+    document.getElementById("maintModal").addEventListener("click", (e) => {
+      if (e.target.id === "maintModal") closeMaintenanceModal();
+    });
 
     window.addEventListener("DOMContentLoaded", () => {
       initFilters();
